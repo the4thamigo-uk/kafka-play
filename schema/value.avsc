@@ -1,0 +1,1 @@
+{ "type": "record", "name": "xrecord", "fields": [ { "name": "event_time", "type": { "type": "long", "logicalType": "timestamp-millis" } }, { "name": "key1", "type": "string" }, { "name": "key2", "type": "string" }, { "name": "val", "type": "int" } ] }
