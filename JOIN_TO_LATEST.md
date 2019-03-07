@@ -90,11 +90,9 @@ ksql> select x.event_time, x.key2, max(x.val), max(y.val) from x inner join y wi
 Note: this is an unwindowed aggregation which means it is an aggregation over the entire stream of data.
 Note: the duplicate row for `x.event_time = 5000` persists into this grouped query, but the last event in the changelog wins.
 
-This gives us _something like_ a join of each x record to the most recent y record. Its not quite right because we are using `max` and it only looks like it is working because we have ingested data values that increase as event_time increases. But, we _could potentially_ write a custom [UDAF](https://www.confluent.io/blog/build-udf-udaf-ksql-5-0) to return the latest data within the group for each field.
-One possible problem with this approach is that it relies on the records within each group to be ordered by the y.event_time, because in a [UDAF](https://docs.confluent.io/current/ksql/docs/developer-guide/udf.html#example-udaf-class), although you can maintain state as you aggregate/reduce, you do not have access to the entire row of data, so you cannot observe the y.event_time.
+This gives us _something like_ a join of each x record to the most recent y record. Its not quite right because we are using `max` and it only appears to be working because we have ingested data values that increase as event_time increases. We can write a custom [UDAF](https://www.confluent.io/blog/build-udf-udaf-ksql-5-0) to return the latest data within the group for each field. The implementation of such a function is [here](./java/udaf/latest/src/main/java/io/ninety/kafka/udaf/LatestUdaf.java), and it has been installed into the docker-compose environment.
 
-https://github.com/confluentinc/ksql/issues/1128
-https://github.com/confluentinc/ksql/issues/1373
+However, the big problem with this approach is that the UDAFs aggregate records in order of processing time not event time. Furthermore, within the handlers of the UDAF you dont seem to be able to access the ROWTIME or any other fields in the record, so there is no way to determine whether the value being considered is more recent, in terms of event time, than the any of the others that have previously been processed in the group.
 
 Alternatively, it you might think you can use the `collect_list` aggregate function, as below, but unfortunately the order of the array is ordered by processing time not the ROWTIME (i.e. event_time):
 
