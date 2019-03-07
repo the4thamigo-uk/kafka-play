@@ -95,6 +95,24 @@ One possible problem with this approach is that it relies on the records within 
 https://github.com/confluentinc/ksql/issues/1128
 https://github.com/confluentinc/ksql/issues/1373
 
+Alternatively, it looks like there is a pure KSQL approach using the `collect_list` aggregate function, though it is messy :
+
+```
+ksql> select x.event_time, x.key2, collect_list(x.val)[cast (count(*) as int)-1], collect_list(y.val)[cast (count(*) as int)-1] from x inner join y within 5 seconds on x.key2 = y.key2 where x.event_time >= y.event_time group by x.event_time, x.key2;
+0 | k2 | 0 | 10
+1000 | k2 | 1 | 10
+2000 | k2 | 2 | 10
+3000 | k2 | 3 | 10
+4000 | k2 | 4 | 10
+5000 | k2 | 5 | 10
+5000 | k2 | 5 | 50
+6000 | k2 | 6 | 50
+7000 | k2 | 7 | 50
+8000 | k2 | 8 | 50
+9000 | k2 | 9 | 50
+10000 | k2 | 10 | 50
+```
+
 However, there are other problems with the above query, specifically when there are x records that dont have any y records present in the join window.
 We simulate this situation, by reducing the size of the join window to 1 second :
 
