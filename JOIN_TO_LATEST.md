@@ -65,6 +65,9 @@ ksql> select * from x inner join y within 5 seconds on x.key2 = y.key2 where x.e
 10000 | k2 | 10000 | k1 | k2 | 10 | 5000 | k2 | 5000 | k1 | k2 | 50
 ```
 
+Note: it seems that the duplicate row for 5000 is caused by first considering records where `x.event_time <= 5000` and `y.event_time < 5000`,
+then `x.event_time <= 5000` and `y.event_time <= 5000`.
+
 And then we can use `group by` to compute aggregates for each event_time and join key :
 
 ```
@@ -84,6 +87,7 @@ ksql> select x.event_time, x.key2, max(x.val), max(y.val) from x inner join y wi
 ```
 
 Note: this is an unwindowed aggregation which means it is an aggregation over the entire stream of data.
+Note: the duplicate row for `x.event_time = 5000` persists into this grouped query, but the last event in the changelog wins.
 
 This gives us _something like_ a join of each x record to the most recent y record. Its not quite right because we are using `max` and it only looks like it is working because we have ingested data values that increase as event_time increases. But, we _could potentially_ write a custom [UDAF](https://www.confluent.io/blog/build-udf-udaf-ksql-5-0) to return the latest data within the group for each field.
 One possible problem with this approach is that it relies on the records within each group to be ordered by the y.event_time, because in a [UDAF](https://docs.confluent.io/current/ksql/docs/developer-guide/udf.html#example-udaf-class), although you can maintain state as you aggregate/reduce, you do not have access to the entire row of data, so you cannot observe the y.event_time.
