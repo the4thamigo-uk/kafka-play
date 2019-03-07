@@ -317,8 +317,7 @@ ksql> select ROWTIME, ROWKEY from xy3;
 
 So far so good, but the big downside to this approach is that the KTable is grouped by `event_time` and so it will grow over time without limit.
 My understanding is that this means that the underlying RocksDB will swap to disk and eventually fill the disk up. So, if we used this kind of join-and-aggregate approach, 
-we would need to find a way to drop old records. Since KSQL is built on top of the Streams API, then you would have 
-the same issue.
+we would need to find a way to drop old records. Since KSQL is built on top of the Streams API, then you would have the same issue.
 
 One way is to send [tombstone records](https://docs.confluent.io/current/ksql/docs/concepts/time-and-windows-in-ksql-queries.html#tumbling-window), which remove entries from the KTable. However, this
 is not a good solution as it requires us to have another process sending these records.
@@ -359,8 +358,8 @@ ksql>create table x_to_latest_y with(timestamp='event_time') as
 select
   x.event_time as event_time,
   x.key2 as key2,
-  max(x.val) as x_val,
-  max(y.val) as y_val
+  latest(x.val) as x_val,
+  latest(y.val) as y_val
 from x
 left join y within 1 seconds on x.key2 = y.key2
 window tumbling (size 3 seconds)
@@ -368,13 +367,11 @@ where y.event_time is null or x.event_time >= y.event_time
 group by x.event_time, x.key2;
 ```
 
+Note: We know that `latest()` does not work due to the ordering issue.
 Note: The ROWKEY now gives us information about the window in which the aggregate was computed.
 
 
-
 ## Experiment with Stream Processors
-
-Assumption is that reproducing the above join-and-aggregate logic would lead to the same problems, although it will probably give more flexibility if the UDAF approach does not work.
 
 What is clear is that the naieve approach of maintaining the latest y record in memory and joining it to each x record as it arrives, clearly does not work for many reasons. At a minimum, you have to cater for late-arriving records, so you _must_ cache recent stream data for x and y, and perform lookups and recalculations when late records arrive. This hand-crafted logic would be very similar to what is being done in the windowed join operation, but we can optimise a little since we are doing a very specific kind of join :
 
@@ -391,4 +388,4 @@ When a late y record, Y, arrives :
 
 Also we need to be able to integrate with the kafka streams state store, probably using [WindowStore](https://kafka.apache.org/10/javadoc/org/apache/kafka/streams/state/WindowStore.html), which has a convenient [fetch](https://kafka.apache.org/10/javadoc/org/apache/kafka/streams/state/ReadOnlyWindowStore.html#fetch-K-K-long-long-) function.
 
-TBD
+- [JoinWindows](https://kafka.apache.org/21/javadoc/org/apache/kafka/streams/kstream/JoinWindows.html) allows us to specify join windows that are in the past 
