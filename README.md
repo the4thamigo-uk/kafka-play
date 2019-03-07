@@ -38,6 +38,12 @@ create stream x with (kafka_topic='x', value_format='avro', timestamp='event_tim
 create stream y with (kafka_topic='y', value_format='avro', timestamp='event_time');
 ```
 
+Or alternatively run the helper script:
+
+```
+run script '/scripts/create_streams.ksql'
+```
+
 Check they are returning data:
 
 ```

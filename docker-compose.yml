@@ -142,6 +142,7 @@ services:
       - ksql-server
     volumes:
       - ./ksql_cli.config:/ksql_cli.config
+      - ./scripts:/scripts
     entrypoint: /bin/sh
     tty: true
 
