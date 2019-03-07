@@ -15,8 +15,9 @@ Also, in order to handle late-arriving data, the backlog of both streams needs t
 There are several ways you might have late arriving data, for example :
 
 1) Unreliable or slow transmission of data
-2) Reingestion of archive data - e.g. a section of historical data was either missing or innaccurate in the initial ingestion and needs to be patched. 
-3) Some stream calculation logic has been changed - though in this case, rather than reingesting the data at source, it is more appropriate to recalculate from the start of the original unmodified stream(s).  
+2) Manually entered data, including corrections to previously incorrectly entered data
+3) Reingestion of archive data - e.g. a section of historical data was either missing or innaccurate in the initial ingestion and needs to be patched. 
+4) Some stream calculation logic has been changed - though in this case, rather than reingesting the data at source, it is more appropriate to recalculate from the start of the original unmodified stream(s).  
 
 ## Experiment with KSQL Joins
 
