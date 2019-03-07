@@ -114,6 +114,9 @@ ksql> select x.event_time, x.key2, collect_list(x.val)[cast (count(*) as int)-1]
 10000 | k2 | 10 | 50
 ```
 
+Since the implementation of a custom UDAF, would mirror very closely the functionality of `collect_list` then we would have the same ordering issues, and the UDAF handlers dont seem to have access to the ROWTIME, only the field value so it may be impossible to do this after all.
+
+
 However, there are other problems with the above query, specifically when there are x records that dont have any y records present in the join window.
 We simulate this situation, by reducing the size of the join window to 1 second :
 
