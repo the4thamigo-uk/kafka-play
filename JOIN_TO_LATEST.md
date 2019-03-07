@@ -96,7 +96,7 @@ One possible problem with this approach is that it relies on the records within 
 https://github.com/confluentinc/ksql/issues/1128
 https://github.com/confluentinc/ksql/issues/1373
 
-Alternatively, it looks like there is a pure KSQL approach using the `collect_list` aggregate function, though it is messy :
+Alternatively, it you might think you can use the `collect_list` aggregate function, as below, but unfortunately the order of the array is ordered by processing time not the ROWTIME (i.e. event_time):
 
 ```
 ksql> select x.event_time, x.key2, collect_list(x.val)[cast (count(*) as int)-1], collect_list(y.val)[cast (count(*) as int)-1] from x inner join y within 5 seconds on x.key2 = y.key2 where x.event_time >= y.event_time group by x.event_time, x.key2;
@@ -358,40 +358,16 @@ ksql>create table x_to_latest_y with(timestamp='event_time') as
 select
   x.event_time as event_time,
   x.key2 as key2,
-  collect_list(x.val)[cast (count(*) as int)-1] as x_val,
-  collect_list(y.val)[cast (count(*) as int)-1] as y_val
+  max(x.val) as x_val,
+  max(y.val) as y_val
 from x
 left join y within 1 seconds on x.key2 = y.key2
 window tumbling (size 3 seconds)
 where y.event_time is null or x.event_time >= y.event_time
 group by x.event_time, x.key2;
-
-ksql> select * from x_to_latest_y4;
-4000 | 4000|+|k2 : Window{start=3000 end=-} | 4000 | k2 | 4 | null
-5000 | 5000|+|k2 : Window{start=3000 end=-} | 5000 | k2 | 5 | 50
-4000 | 4000|+|k2 : Window{start=3000 end=-} | 4000 | k2 | 4 | 30
-4000 | 4000|+|k2 : Window{start=3000 end=-} | 4000 | k2 | 4 | 40
-5000 | 5000|+|k2 : Window{start=3000 end=-} | 5000 | k2 | 5 | 40
-5000 | 5000|+|k2 : Window{start=3000 end=-} | 5000 | k2 | 5 | 45
-9000 | 9000|+|k2 : Window{start=9000 end=-} | 9000 | k2 | 9 | null
-11000 | 11000|+|k2 : Window{start=9000 end=-} | 11000 | k2 | 11 | null
-4500 | 4500|+|k2 : Window{start=3000 end=-} | 4500 | k2 | 4 | 40
-4500 | 4500|+|k2 : Window{start=3000 end=-} | 4500 | k2 | 4 | 45
-3000 | 3000|+|k2 : Window{start=3000 end=-} | 3000 | k2 | 3 | null
-0 | 0|+|k2 : Window{start=0 end=-} | 0 | k2 | 0 | 10
-1000 | 1000|+|k2 : Window{start=0 end=-} | 1000 | k2 | 1 | 10
-3000 | 3000|+|k2 : Window{start=3000 end=-} | 3000 | k2 | 3 | 30
-7000 | 7000|+|k2 : Window{start=6000 end=-} | 7000 | k2 | 7 | null
-8000 | 8000|+|k2 : Window{start=6000 end=-} | 8000 | k2 | 8 | null
-2000 | 2000|+|k2 : Window{start=0 end=-} | 2000 | k2 | 2 | null
-10000 | 10000|+|k2 : Window{start=9000 end=-} | 10000 | k2 | 10 | null
-12000 | 12000|+|k2 : Window{start=12000 end=-} | 12000 | k2 | 12 | null
-13000 | 13000|+|k2 : Window{start=12000 end=-} | 13000 | k2 | 13 | null
-6000 | 6000|+|k2 : Window{start=6000 end=-} | 6000 | k2 | 6 | 50
-
 ```
 
-Note: The ROWKEY changes to give information about the window in which the aggregate was computed.
+Note: The ROWKEY now gives us information about the window in which the aggregate was computed.
 
 
 
