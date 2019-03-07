@@ -287,13 +287,27 @@ ksql> select ROWKEY from xy3;
 ```
 
 So far so good, but the big downside to this approach is that the KTable is grouped by `event_time` and so it will grow over time without limit.
-My understanding is that this means that the underlying RocksDB will swap to disk and eventually fill the disk up.
-
-So, if we used this kind of join-and-aggregate approach, we would need to find [a way](https://docs.confluent.io/current/ksql/docs/developer-guide/aggregate-streaming-data.html#tombstone-records)
-to drop old records. Since KSQL is built on top of the Streams API, then you would have 
+My understanding is that this means that the underlying RocksDB will swap to disk and eventually fill the disk up. So, if we used this kind of join-and-aggregate approach, 
+we would need to find a way to drop old records. Since KSQL is built on top of the Streams API, then you would have 
 the same issue.
 
-A further issue is that _very_ late data (namely data that is received outside of the retention period.
+One way is to send [tombstone records](https://docs.confluent.io/current/ksql/docs/concepts/time-and-windows-in-ksql-queries.html#tumbling-window), which remove entries from the KTable. However, this
+is not a good solution as it requires us to have another process sending these records.
+
+Alternatively, if we were to drop the requirement to have an unwindowed aggregation, then the cache would be cleared-out based on the aggregation window retention time. So, given that we are trying to join to the latest y record
+for each x record, such that x.event_time >= y.event_time, we need to consider which of the three aggregation [window types](https://docs.confluent.io/current/ksql/docs/developer-guide/syntax-reference.html#select)
+(TUMBLING, HOPPING, SESSION), if any, are suitable for our needs :
+
+- **TUMBLING** - There is a single window into which an x record falls (i.e. the [tumbling window's](https://docs.confluent.io/current/ksql/docs/concepts/time-and-windows-in-ksql-queries.html#tumbling-window) start time is inclusive
+but the end time is exclusive). Furthermore, all the joined y records will occur in the same window, since we are grouping on x.event_time. There _can_, however, be multiple distinct 
+x records within the same tumbling window (e.g. x records with 1min granularity, and window size of 5min),
+but this is ok, because we are grouping on x.event time _within_ the window, and therefore we will get a single aggregate output record for each x record within the window. Which is what we want.
+- **HOPPING** - Since x.event_time can fall within multiple windows (since they overlap), this will cause multiple reaggregation calculations on the same data, each leading to the same result, leading to duplicate aggregated output records.
+- **SESSION** - can be discounted as we are assuming that we have a near continuous flow of data. 
+
+A further issue is what to do about _very_ late data. We have two windows to consider :
+- **JOIN WINDOW** - Extending the retention period for the join window will ensure we have more chance of having a non-null join with a y record. For data outside this retention period we would have to 
+- **AGGREGATE WINDOW** - Extending the retention period for the aggregation window ensures that we capture any late arriving joined y records for any x record falling within the window.
 
 Its also not clear how performant this is.
 
