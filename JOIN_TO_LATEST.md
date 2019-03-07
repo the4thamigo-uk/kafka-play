@@ -255,12 +255,40 @@ ksql> select * from xy;
 12000 | 12000|+|k2 | 12000 | k2 | 12 | -2147483648
 13000 | 13000|+|k2 | 13000 | k2 | 13 | -2147483648
 ```
-Note: the stream records for the KTable have a strange order. Not quite sure why this is, but we assume that this materializes to the same results as above... needs more research to understand this...
 
-Note also that the KTable rows are assigned compound ROWKEYs of the `group by` fields :
+In the above results, the ROWTIME doesnt match the x.event_time (col3). For example, row 9 has a ROWTIME = 4000, but x.event_time = 5000.
+We can fix this by specifying the TIMESTAMP field in the create table statement:
 
 ```
-ksql> select ROWKEY from xy3;
+ksql>create table xy2  with(timestamp='event_time') as select x.event_time as event_time, x.key2 as key2, max(x.val) as x_val, max(y.val) as y_val from x left join y within 1 seconds on x.key2 = y.key2 where y.event_time is null or x.event_time >= y.event_time group by x.event_time, x.key2;
+ksql> select * from xy2;
+0 | 0|+|k2 | 0 | k2 | 0 | 10
+1000 | 1000|+|k2 | 1000 | k2 | 1 | 10
+2000 | 2000|+|k2 | 2000 | k2 | 2 | -2147483648
+10000 | 10000|+|k2 | 10000 | k2 | 10 | -2147483648
+12000 | 12000|+|k2 | 12000 | k2 | 12 | -2147483648
+13000 | 13000|+|k2 | 13000 | k2 | 13 | -2147483648
+4000 | 4000|+|k2 | 4000 | k2 | 4 | -2147483648
+5000 | 5000|+|k2 | 5000 | k2 | 5 | 50
+6000 | 6000|+|k2 | 6000 | k2 | 6 | 50
+3000 | 3000|+|k2 | 3000 | k2 | 3 | -2147483648
+4000 | 4000|+|k2 | 4000 | k2 | 4 | 30
+4000 | 4000|+|k2 | 4000 | k2 | 4 | 40
+5000 | 5000|+|k2 | 5000 | k2 | 5 | 50
+5000 | 5000|+|k2 | 5000 | k2 | 5 | 50
+9000 | 9000|+|k2 | 9000 | k2 | 9 | -2147483648
+11000 | 11000|+|k2 | 11000 | k2 | 11 | -2147483648
+3000 | 3000|+|k2 | 3000 | k2 | 3 | 30
+4500 | 4500|+|k2 | 4500 | k2 | 4 | 40
+4500 | 4500|+|k2 | 4500 | k2 | 4 | 45
+7000 | 7000|+|k2 | 7000 | k2 | 7 | -2147483648
+8000 | 8000|+|k2 | 8000 | k2 | 8 | -2147483648
+```
+
+Note: also that the KTable rows are assigned compound ROWKEYs of the `group by` fields :
+
+```
+ksql> select ROWTIME, ROWKEY from xy3;
 6000|+|k2
 4000|+|k2
 5000|+|k2
@@ -305,13 +333,13 @@ but this is ok, because we are grouping on x.event time _within_ the window, and
 - **HOPPING** - Since x.event_time can fall within multiple windows (since they overlap), this will cause multiple reaggregation calculations on the same data, each leading to the same result, leading to duplicate aggregated output records.
 - **SESSION** - can be discounted as we are assuming that we have a near continuous flow of data. 
 
-Hence, our query is :
+Hence, our query becomes :
 
 ```
 select x.event_time, x.key2, max(x.val), max(y.val)
-from x 
+from x
 left join y within 1 seconds on x.key2 = y.key2
-window tumbling (size 5 minutes)
+window tumbling (size 3 seconds)
 where y.event_time is null or x.event_time >= y.event_time
 group by x.event_time, x.key2;
 ```
@@ -321,6 +349,51 @@ A further issue is what to do about _very_ late data. We have two windows to con
 - **AGGREGATE WINDOW** - Extending the retention period for the aggregation window ensures that we capture any late arriving joined y records for any x record falling within the window.
 
 Its also not clear how performant this is.
+
+
+Finally, taking everything above into account we have the final create table statement :
+
+```
+ksql>create table x_to_latest_y with(timestamp='event_time') as
+select
+  x.event_time as event_time,
+  x.key2 as key2,
+  collect_list(x.val)[cast (count(*) as int)-1] as x_val,
+  collect_list(y.val)[cast (count(*) as int)-1] as y_val
+from x
+left join y within 1 seconds on x.key2 = y.key2
+window tumbling (size 3 seconds)
+where y.event_time is null or x.event_time >= y.event_time
+group by x.event_time, x.key2;
+
+ksql> select * from x_to_latest_y4;
+4000 | 4000|+|k2 : Window{start=3000 end=-} | 4000 | k2 | 4 | null
+5000 | 5000|+|k2 : Window{start=3000 end=-} | 5000 | k2 | 5 | 50
+4000 | 4000|+|k2 : Window{start=3000 end=-} | 4000 | k2 | 4 | 30
+4000 | 4000|+|k2 : Window{start=3000 end=-} | 4000 | k2 | 4 | 40
+5000 | 5000|+|k2 : Window{start=3000 end=-} | 5000 | k2 | 5 | 40
+5000 | 5000|+|k2 : Window{start=3000 end=-} | 5000 | k2 | 5 | 45
+9000 | 9000|+|k2 : Window{start=9000 end=-} | 9000 | k2 | 9 | null
+11000 | 11000|+|k2 : Window{start=9000 end=-} | 11000 | k2 | 11 | null
+4500 | 4500|+|k2 : Window{start=3000 end=-} | 4500 | k2 | 4 | 40
+4500 | 4500|+|k2 : Window{start=3000 end=-} | 4500 | k2 | 4 | 45
+3000 | 3000|+|k2 : Window{start=3000 end=-} | 3000 | k2 | 3 | null
+0 | 0|+|k2 : Window{start=0 end=-} | 0 | k2 | 0 | 10
+1000 | 1000|+|k2 : Window{start=0 end=-} | 1000 | k2 | 1 | 10
+3000 | 3000|+|k2 : Window{start=3000 end=-} | 3000 | k2 | 3 | 30
+7000 | 7000|+|k2 : Window{start=6000 end=-} | 7000 | k2 | 7 | null
+8000 | 8000|+|k2 : Window{start=6000 end=-} | 8000 | k2 | 8 | null
+2000 | 2000|+|k2 : Window{start=0 end=-} | 2000 | k2 | 2 | null
+10000 | 10000|+|k2 : Window{start=9000 end=-} | 10000 | k2 | 10 | null
+12000 | 12000|+|k2 : Window{start=12000 end=-} | 12000 | k2 | 12 | null
+13000 | 13000|+|k2 : Window{start=12000 end=-} | 13000 | k2 | 13 | null
+6000 | 6000|+|k2 : Window{start=6000 end=-} | 6000 | k2 | 6 | 50
+
+```
+
+Note: The ROWKEY changes to give information about the window in which the aggregate was computed.
+
+
 
 ## Experiment with Stream Processors
 
