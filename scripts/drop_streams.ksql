@@ -1,0 +1,2 @@
+drop stream if exists x delete topic;
+drop stream if exists y delete topic;
