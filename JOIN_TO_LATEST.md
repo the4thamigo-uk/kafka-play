@@ -305,6 +305,17 @@ but this is ok, because we are grouping on x.event time _within_ the window, and
 - **HOPPING** - Since x.event_time can fall within multiple windows (since they overlap), this will cause multiple reaggregation calculations on the same data, each leading to the same result, leading to duplicate aggregated output records.
 - **SESSION** - can be discounted as we are assuming that we have a near continuous flow of data. 
 
+Hence, our query is :
+
+```
+select x.event_time, x.key2, max(x.val), max(y.val)
+from x 
+left join y within 1 seconds on x.key2 = y.key2
+window tumbling (size 5 minutes)
+where y.event_time is null or x.event_time >= y.event_time
+group by x.event_time, x.key2;
+```
+
 A further issue is what to do about _very_ late data. We have two windows to consider :
 - **JOIN WINDOW** - Extending the retention period for the join window will ensure we have more chance of having a non-null join with a y record. For data outside this retention period we would have to 
 - **AGGREGATE WINDOW** - Extending the retention period for the aggregation window ensures that we capture any late arriving joined y records for any x record falling within the window.
