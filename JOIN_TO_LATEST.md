@@ -388,4 +388,8 @@ When a late y record, Y, arrives :
 
 Also we need to be able to integrate with the kafka streams state store, probably using [WindowStore](https://kafka.apache.org/10/javadoc/org/apache/kafka/streams/state/WindowStore.html), which has a convenient [fetch](https://kafka.apache.org/10/javadoc/org/apache/kafka/streams/state/ReadOnlyWindowStore.html#fetch-K-K-long-long-) function.
 
+Notes:
 - [JoinWindows](https://kafka.apache.org/21/javadoc/org/apache/kafka/streams/kstream/JoinWindows.html) allows us to specify join windows that are in the past 
+- https://stackoverflow.com/questions/50401792/how-to-write-the-valuejoiner-when-joining-two-kafka-streams-defined-using-avro-s
+
+TBD
