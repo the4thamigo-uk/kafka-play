@@ -2,13 +2,17 @@
 
 ## Introduction
 
-The following, is a discussion of how to join two streams, such that, each left stream record joins to only the most recent record in the right stream.
+The following, is a discussion of how to join two streams, such that, each left stream record joins to only the nearest past record in the right stream.
 
 This performs a similar operation found in other databases e.g. the `fill` specifier of the `group by` [clause in influxql](https://docs.influxdata.com/influxdb/v1.7/query_language/data_exploration/#basic-group-by-time-syntax).
 
 By default, kafka [stream-stream joins](https://docs.confluent.io/current/ksql/docs/developer-guide/join-streams-and-tables.html#semantics-of-stream-stream-joins) perform windowed joins which join all possible records within the window (which moves over time). Furthermore, the window extends into the future and into the past, so the join cannot be restricted to only consider past right records. So there is no way to do this out-of-the-box it seems.
 
-The stream equivalent is particularly tricky, because it has to deal with late and out-of-order data, so that groups of left records need to be re-calculated when right records arrive late, and vice-versa.
+The stream equivalent is particularly tricky, because it has to deal with late-arriving and out-of-order records, so that groups of left records need to be re-calculated when right records arrive late, and vice-versa.
+
+We make a distinction here :
+- **late-arriving records** - this is a record that arrives for processing in order of event_time, but arrives for processing later than expected.
+- **out-of-order records** - this is a record that arrives for processing out of order of event_time. By definition, since the latest event_time in the stream is after the event_time of the record, an out-of-order record is also late-arriving. 
 
 Also, in order to handle late-arriving data, the backlog of both streams needs to be cached, and therefore for high-frequency data or data that can arrive _very_ late, you might need to cache a significant amount of data. In Kafka streams, a [retention period](https://docs.confluent.io/current/streams/developer-guide/config-streams.html#optional-configuration-parameters) is set for the records in the join windows, and any late records that arrive for times prior to this retention period are simply [discarded](https://docs.confluent.io/current/ksql/docs/developer-guide/join-streams-and-tables.html#joins-and-windows), leading to missing and potentially inaccurate data.
 
@@ -19,9 +23,9 @@ There are several ways you might have late arriving data, for example :
 3) Reingestion of archive data - e.g. a section of historical data was either missing or innaccurate in the initial ingestion and needs to be patched. 
 4) Some stream calculation logic has been changed - though in this case, rather than reingesting the data at source, it is more appropriate to recalculate from the start of the original unmodified stream(s).  
 
-## Experiment with KSQL Joins
+## Simple inner joins
 
-Assuming the stream `x` is our left stream and `y` is our right stream. We can perform a KSQL join operation on any key field e.g. `key2`:
+Assuming the stream `x` is our left stream and `y` is our right stream (see [README.md](./README.md). We can perform a KSQL join operation on any key field e.g. `key2`:
 
 ```
 ksql> select * from x inner join y within 5 seconds on x.key2 = y.key2;
@@ -69,7 +73,39 @@ ksql> select * from x inner join y within 5 seconds on x.key2 = y.key2 where x.e
 Note: it seems that the duplicate row for 5000 is caused by first considering records where `x.event_time <= 5000` and `y.event_time < 5000`,
 then `x.event_time <= 5000` and `y.event_time <= 5000`.
 
-And then we can use `group by` to compute aggregates for each event_time and join key :
+If we leave the above query running, we can simulate a late-arriving record, e.g. a new y record at y.event_time = 7000 generates the following new records in the output stream:
+
+```
+7000 | k2 | 7000 | k1 | k2 | 7 | 7000 | k2 | 7000 | k1 | k2 | 70
+8000 | k2 | 8000 | k1 | k2 | 8 | 7000 | k2 | 7000 | k1 | k2 | 70
+9000 | k2 | 9000 | k1 | k2 | 9 | 7000 | k2 | 7000 | k1 | k2 | 70
+10000 | k2 | 10000 | k1 | k2 | 10 | 7000 | k2 | 7000 | k1 | k2 | 70
+11000 | k2 | 11000 | k1 | k2 | 11 | 7000 | k2 | 7000 | k1 | k2 | 70
+12000 | k2 | 12000 | k1 | k2 | 12 | 7000 | k2 | 7000 | k1 | k2 | 70
+```
+
+This is good as it is generating the x records that have the new y record within their 'past' join window. If we can be sure that records arrive in order, this kind of query might be sufficient. The only downside is that a consumer would process _all_ joined records for each window, such that the last record within in the window 'wins' by overriding all previous ones;
+
+Now, lets simulate out-of-order data, e.g. a new y record at y.event_time = 6500 :
+
+```
+7000 | k2 | 7000 | k1 | k2 | 7 | 6500 | k2 | 6500 | k1 | k2 | 65
+8000 | k2 | 8000 | k1 | k2 | 8 | 6500 | k2 | 6500 | k1 | k2 | 65
+9000 | k2 | 9000 | k1 | k2 | 9 | 6500 | k2 | 6500 | k1 | k2 | 65
+10000 | k2 | 10000 | k1 | k2 | 10 | 6500 | k2 | 6500 | k1 | k2 | 65
+11000 | k2 | 11000 | k1 | k2 | 11 | 6500 | k2 | 6500 | k1 | k2 | 65
+```
+
+So in this case, we again generate the x records that have the new record within their 'past' window. So for out-of-order data, a consumer would interpret the stream as meaning that these records are the 'latest' joins (in terms of event_time), and this would be incorrect. 
+
+
+Note: re-running the query will correctly re-order the out-of-order records within each join group. However, a persistent query created with `create stream as` would maintain the order of the records, since records are written to an output topic in this case.
+
+So, for two reasons (out-of-order records and sending multiple records for each join window), the basic join doesnt work well.
+
+## Using group by
+
+So we can consider `group by` which allows us to return a single record as well as recalculate it as new records arrive. We can group over the entire joined stream by x.event_time and any key (e.g. x.key2) :
 
 ```
 ksql> select x.event_time, x.key2, max(x.val), max(y.val) from x inner join y within 5 seconds on x.key2 = y.key2 where x.event_time >= y.event_time group by x.event_time, x.key2;
