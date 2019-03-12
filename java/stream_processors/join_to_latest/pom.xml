@@ -75,7 +75,7 @@
 					</descriptorRefs>
 					<archive>
 						<manifest>
-							<mainClass>io.ninety.Joiner</mainClass>
+							<mainClass>io.ninety.joiner.JoinerStreamProcessor</mainClass>
 						</manifest>
 					</archive>
 				</configuration>

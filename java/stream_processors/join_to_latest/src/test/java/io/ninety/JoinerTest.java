@@ -1,8 +1,5 @@
 package io.ninety;
 
-import org.apache.avro.Schema;
-import org.apache.avro.Schema.Parser;
-
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -33,8 +30,8 @@ public class JoinerTest
 
     public void testApp()
     {
-    	final Parser parser = new Schema.Parser();
-    	parser.parse("{ \"type\": \"record\", \"name\": \"xrecord\", \"fields\": [ { \"name\": \"event_time\", \"type\": { \"type\": \"long\", \"logicalType\": \"timestamp-millis\" } }, { \"name\": \"key1\", \"type\": \"string\" }, { \"name\": \"key2\", \"type\": \"string\" }, { \"name\": \"val\", \"type\": \"int\" } ] }");
+    	//final Parser parser = new Schema.Parser();
+    	//parser.parse("{ \"type\": \"record\", \"name\": \"xrecord\", \"fields\": [ { \"name\": \"event_time\", \"type\": { \"type\": \"long\", \"logicalType\": \"timestamp-millis\" } }, { \"name\": \"key1\", \"type\": \"string\" }, { \"name\": \"key2\", \"type\": \"string\" }, { \"name\": \"val\", \"type\": \"int\" } ] }");
     	
     }
 }
