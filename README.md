@@ -23,6 +23,12 @@ cat ./data/x.dat | ./produce.sh x
 cat ./data/y.dat | ./produce.sh y
 ```
 
+or alternatively run the helper script:
+
+```
+./x_y_data.sh
+```
+
 Check topic is created [here](http://localhost:9021/management/topics)
 
 Start the ksql cli :
