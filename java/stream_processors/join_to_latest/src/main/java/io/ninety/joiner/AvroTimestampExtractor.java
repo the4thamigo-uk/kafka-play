@@ -19,6 +19,13 @@ public class AvroTimestampExtractor implements TimestampExtractor {
 	@Override
 	public long extract(ConsumerRecord<Object, Object> record, long previousTimestamp) {
 		final GenericRecord r = (GenericRecord) record.value();
+		return this.extract(r);
+	}
+	
+	public long extract(GenericRecord r) {
+		if(r == null) {
+			return 0;
+		}
 		return (long) r.get(this.fieldName);
 	}
 }
