@@ -22,6 +22,7 @@ services:
       - "29092:29092"
     volumes:
       - ./kafka_data:/var/lib/kafka/data
+      - ./stream_processors:/stream_processors
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
