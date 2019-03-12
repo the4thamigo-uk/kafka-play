@@ -31,15 +31,17 @@ import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.JoinWindows;
 import org.apache.kafka.streams.kstream.Joined;
-import org.apache.kafka.streams.kstream.KGroupedStream;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.KeyValueMapper;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
+import org.apache.kafka.streams.kstream.TimeWindowedKStream;
+import org.apache.kafka.streams.kstream.TimeWindows;
 import org.apache.kafka.streams.kstream.ValueJoiner;
-import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
+import org.apache.kafka.streams.kstream.Windowed;
 
+import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
 
 public final class JoinerTopology {
 
@@ -51,7 +53,11 @@ public final class JoinerTopology {
 		final String joinTopic = "xy";
 		final String leftTsField = "event_time";
 		final String rightTsField = "event_time";
-		final Duration joinAfter = Duration.ofSeconds(5);
+		final String groupByKey = "key1_1";
+		final Duration joinWindowSize = Duration.ofSeconds(5);
+		final Duration groupWindowSize = Duration.ofSeconds(5);
+		final Duration joinWindowRetention = Duration.ofSeconds(5);
+		final Duration groupWindowRetention = Duration.ofSeconds(5);
 		final Map<String, String> leftMappings = new HashMap<String, String>();
 		leftMappings.put("event_time", "event_time_1");
 		leftMappings.put("key1", "key1_1");
@@ -63,7 +69,6 @@ public final class JoinerTopology {
 		rightMappings.put("key2", "key2_2");
 		rightMappings.put("val", "val_2");
 
-		final String groupByKey = "key1_1";
 
 		// make the avro serde
 		final Map<String, String> propMap = props.entrySet().stream()
@@ -75,31 +80,40 @@ public final class JoinerTopology {
 		// timestamp extractors
 		final AvroTimestampExtractor leftTsExtractor = AvroTimestampExtractor.create(leftTsField);
 		final AvroTimestampExtractor rightTsExtractor = AvroTimestampExtractor.create(rightTsField);
-		final AvroTimestampExtractor leftMappedTsExtractor = AvroTimestampExtractor.create(leftMappings.get(leftTsField));
-		final AvroTimestampExtractor rightMappedTsExtractor = AvroTimestampExtractor.create(rightMappings.get(rightTsField));
-		
+		final AvroTimestampExtractor leftMappedTsExtractor = AvroTimestampExtractor
+				.create(leftMappings.get(leftTsField));
+		final AvroTimestampExtractor rightMappedTsExtractor = AvroTimestampExtractor
+				.create(rightMappings.get(rightTsField));
+
 		// create the streams from the topics
 		final StreamsBuilder builder = new StreamsBuilder();
-		final Consumed<String, GenericRecord> leftConsumed = Consumed.with(strSerde, avroSerde).withTimestampExtractor(leftTsExtractor);
+		final Consumed<String, GenericRecord> leftConsumed = Consumed.with(strSerde, avroSerde)
+				.withTimestampExtractor(leftTsExtractor);
 		final KStream<String, GenericRecord> leftStream = builder.stream(leftTopic, leftConsumed);
-		final Consumed<String, GenericRecord> rightConsumed = Consumed.with(strSerde, avroSerde).withTimestampExtractor(rightTsExtractor);
+		final Consumed<String, GenericRecord> rightConsumed = Consumed.with(strSerde, avroSerde)
+				.withTimestampExtractor(rightTsExtractor);
 		final KStream<String, GenericRecord> rightStream = builder.stream(rightTopic, rightConsumed);
 
 		// setup the join
 		final Joined<String, GenericRecord, GenericRecord> joined = Joined.with(strSerde, avroSerde, avroSerde);
-		final ValueJoiner<GenericRecord, GenericRecord, GenericRecord> joiner = AvroFieldsValueJoiner.create(leftMappings,rightMappings);
-		final JoinWindows joinWindow = JoinWindows.of(Duration.ZERO).before(joinAfter);
+		final ValueJoiner<GenericRecord, GenericRecord, GenericRecord> joiner = AvroFieldsValueJoiner
+				.create(leftMappings, rightMappings);
+		final JoinWindows joinWindow = JoinWindows.of(Duration.ZERO).before(joinWindowSize).grace(joinWindowRetention);
 		final KStream<String, GenericRecord> joinStream = leftStream.join(rightStream, joiner, joinWindow, joined);
-		
+
 		// setup the grouping
-		final KeyValueMapper<String, GenericRecord, String> groupKeyMapper = AvroKeyValueMapper.create(leftMappedTsExtractor, groupByKey);
-		final KGroupedStream<String, GenericRecord> groupStream= joinStream.groupBy(groupKeyMapper, Grouped.with(strSerde,  avroSerde));
+		final KeyValueMapper<String, GenericRecord, String> groupKeyMapper = AvroKeyValueMapper
+				.create(leftMappedTsExtractor, groupByKey);
+		final TimeWindowedKStream<String, GenericRecord> groupStream = joinStream
+				.groupBy(groupKeyMapper, Grouped.with(strSerde, avroSerde))
+				.windowedBy(TimeWindows.of(groupWindowSize).grace(groupWindowRetention));
 		final AvroLastAggregator lastAggregator = AvroLastAggregator.create(rightMappedTsExtractor);
-		final KTable<String, GenericRecord> groupTable = groupStream.aggregate(lastAggregator, lastAggregator, Materialized.with(strSerde, avroSerde));
+		final KTable<Windowed<String>, GenericRecord> groupTable = groupStream.aggregate(lastAggregator, lastAggregator,
+				Materialized.with(strSerde, avroSerde));
 
 		// write the changelog stream to the topic
 		final Produced<String, GenericRecord> produced = Produced.with(strSerde, avroSerde);
-		groupTable.toStream(groupKeyMapper).to(joinTopic, produced);
+		groupTable.toStream(WindowedKeyValueMapper.create(groupKeyMapper)).to(joinTopic, produced);
 
 		return builder.build();
 	}

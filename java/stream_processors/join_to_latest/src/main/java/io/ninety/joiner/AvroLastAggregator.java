@@ -3,15 +3,14 @@ package io.ninety.joiner;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.streams.kstream.Aggregator;
 import org.apache.kafka.streams.kstream.Initializer;
-import org.apache.kafka.streams.processor.TimestampExtractor;
 
 public class AvroLastAggregator implements Initializer<GenericRecord>, Aggregator<String, GenericRecord, GenericRecord>{
 
-	private final AvroTimestampExtractor tsExtractor;
-	
 	public static AvroLastAggregator create(AvroTimestampExtractor tsExtractor) {
 		return new AvroLastAggregator(tsExtractor);
 	}
+	
+	private final AvroTimestampExtractor tsExtractor;
 	
 	private AvroLastAggregator(AvroTimestampExtractor tsExtractor) {
 		this.tsExtractor = tsExtractor;

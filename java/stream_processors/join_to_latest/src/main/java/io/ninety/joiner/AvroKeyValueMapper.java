@@ -5,12 +5,12 @@ import org.apache.kafka.streams.kstream.KeyValueMapper;
 
 public class AvroKeyValueMapper implements KeyValueMapper<String, GenericRecord, String> {
 
-	private final String fieldName;
-	private final AvroTimestampExtractor timestampExtractor;
-
 	public static AvroKeyValueMapper create(AvroTimestampExtractor timestampExtractor, String fieldName) {
 		return new AvroKeyValueMapper(timestampExtractor, fieldName);
 	}
+	private final String fieldName;
+
+	private final AvroTimestampExtractor timestampExtractor;
 
 	private AvroKeyValueMapper(AvroTimestampExtractor timestampExtractor, String fieldName) {
 		this.fieldName = fieldName;

@@ -6,11 +6,11 @@ import org.apache.kafka.streams.processor.TimestampExtractor;
 
 public class AvroTimestampExtractor implements TimestampExtractor {
 
-	private final String fieldName;
-
 	public static AvroTimestampExtractor create(String fieldName) {
 		return new AvroTimestampExtractor(fieldName);
 	}
+
+	private final String fieldName;
 
 	private AvroTimestampExtractor(String fieldName) {
 		this.fieldName = fieldName;
