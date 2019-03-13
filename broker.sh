@@ -1,4 +1,6 @@
 #!/bin/bash
-source ./env.sh
+script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-docker-compose exec broker /bin/bash
+source $script_dir/env.sh
+
+$dc exec broker /bin/bash

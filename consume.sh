@@ -1,7 +1,9 @@
 #!/bin/bash
-source ./env.sh
+script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+source $script_dir/env.sh
 
 topic="$1"
 
-docker-compose exec -T connect kafka-avro-console-consumer --from-beginning  --bootstrap-server "$broker_addr" --topic "$topic" --property print.key=true --property schema.registry.url="$schema_registry_url"
+$dc exec -T connect kafka-avro-console-consumer --from-beginning  --bootstrap-server "$broker_addr" --topic "$topic" --property print.key=true --property schema.registry.url="$schema_registry_url"
 
