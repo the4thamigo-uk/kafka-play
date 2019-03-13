@@ -23,10 +23,6 @@ public class AvroLastAggregator implements Initializer<GenericRecord>, Aggregato
 
 	@Override
 	public GenericRecord apply(String key, GenericRecord val, GenericRecord agg) {
-		System.out.println("aggregate");
-		System.out.println(String.valueOf(key));
-		System.out.println(String.valueOf(val));
-		System.out.println(String.valueOf(agg));
 		if(agg == null) {
 			return val;
 		}
@@ -34,12 +30,8 @@ public class AvroLastAggregator implements Initializer<GenericRecord>, Aggregato
 		long tsAgg = this.tsExtractor.extract(agg);
 		
 		if(tsVal > tsAgg) {
-			System.out.println("choosing val");
-			System.out.println(String.valueOf(val));
 			return val;
 		}
-		System.out.println("choosing agg");
-		System.out.println(String.valueOf(agg));
 		return agg;
 	}
 }
