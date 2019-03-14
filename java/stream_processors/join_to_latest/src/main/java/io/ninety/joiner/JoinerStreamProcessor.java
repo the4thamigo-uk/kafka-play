@@ -25,7 +25,7 @@ public class JoinerStreamProcessor {
 		props.put(JoinerProperties.GROUP_BY_TIMESTAMP_FIELD, "event_time_1");
 		props.put(JoinerProperties.AGGREGATE_TIMESTAMP_FIELD, "event_time_2");
 		props.put(JoinerProperties.JOIN_WINDOW_SIZE, "PT5S");
-		props.put(JoinerProperties.GROUP_WINDOW_SIZE, "PT30S");
+		props.put(JoinerProperties.GROUP_WINDOW_SIZE, "PT5S");
 		props.put(JoinerProperties.JOIN_WINDOW_RETENTION, "PT60S");
 		props.put(JoinerProperties.GROUP_WINDOW_RETENTION, "PT60S");
 		props.put(JoinerProperties.LEFT_FIELDS, "event_time as event_time_1, key1 as key1_1, key2 as key2_1, val as val_1");
