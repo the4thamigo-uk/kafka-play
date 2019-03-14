@@ -17,6 +17,7 @@ public class WindowedKeyValueMapper<K, V, VR> implements KeyValueMapper<Windowed
 
 	@Override
 	public VR apply(Windowed<K> key, V value) {
+		System.out.println("window key: " + key.toString());
 		return this.mapper.apply(key.key(), value);
 	}
 }

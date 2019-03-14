@@ -12,13 +12,16 @@ import org.apache.kafka.streams.kstream.ValueJoiner;
 
 public class AvroFieldsValueJoiner implements ValueJoiner<GenericRecord, GenericRecord, GenericRecord> {
 
-	private Schema schema;
+	public static AvroFieldsValueJoiner create(Map<String, String> leftMappings, Map<String, String> rightMappings) {
+		return new AvroFieldsValueJoiner(leftMappings, rightMappings);
+	}
+	
 	private final Map<String, String> leftMappings;
 	private final Map<String, String> rightMappings;
-
 	private final String schemaName;
 	private final String schemaDoc;
 	private final String schemaNamespace;
+	private Schema schema;
 
 	private AvroFieldsValueJoiner(Map<String, String> leftMappings, Map<String, String> rightMappings) {
 		this.leftMappings = leftMappings;
@@ -30,13 +33,13 @@ public class AvroFieldsValueJoiner implements ValueJoiner<GenericRecord, Generic
 		this.schemaNamespace = "io.ninety";
 	}
 
-	public static AvroFieldsValueJoiner create(Map<String, String> leftMappings, Map<String, String> rightMappings) {
-		return new AvroFieldsValueJoiner(leftMappings, rightMappings);
-	}
-
 	@Override
 	public GenericRecord apply(GenericRecord leftValue, GenericRecord rightValue) {
 
+		System.out.println("joining");
+		System.out.println(leftValue);
+		System.out.println(rightValue);
+		
 		if (this.schema == null) {
 			final List<Field> leftFields = mapFields(leftValue.getSchema(), leftMappings);
 			final List<Field> rightFields = mapFields(rightValue.getSchema(), rightMappings);
@@ -49,6 +52,7 @@ public class AvroFieldsValueJoiner implements ValueJoiner<GenericRecord, Generic
 		mergeValue(b, leftValue, leftMappings);
 		mergeValue(b, rightValue, rightMappings);
 		final GenericRecord joinValue = b.build();
+		System.out.println(joinValue);
 		return joinValue;
 	}
 	

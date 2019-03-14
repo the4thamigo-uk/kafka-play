@@ -25,7 +25,6 @@ import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
 
 public final class JoinerTopology {
 
-	
 	public static Topology create(JoinerProperties props) {
 
 		// make the avro serde
@@ -36,9 +35,11 @@ public final class JoinerTopology {
 		// timestamp extractors
 		final AvroTimestampExtractor leftTsExtractor = AvroTimestampExtractor.create(props.leftTimestampField());
 		final AvroTimestampExtractor rightTsExtractor = AvroTimestampExtractor.create(props.rightTimestampField());
-		final AvroTimestampExtractor leftMappedTsExtractor = AvroTimestampExtractor.create(props.leftFields().get(props.leftTimestampField()));
-		final AvroTimestampExtractor rightMappedTsExtractor = AvroTimestampExtractor.create(props.rightFields().get(props.rightTimestampField()));
+		final AvroTimestampExtractor groupByTsExtractor = AvroTimestampExtractor.create(props.groupByTimestampField());
+		final AvroTimestampExtractor aggregateTsExtractor = AvroTimestampExtractor.create(props.aggregateTimestampField());
 
+		System.out.println(props);
+		
 		// create the streams from the topics
 		final StreamsBuilder builder = new StreamsBuilder();
 		final Consumed<String, GenericRecord> leftConsumed = Consumed.with(strSerde, avroSerde)
@@ -57,14 +58,14 @@ public final class JoinerTopology {
 
 		// setup the grouping
 		final KeyValueMapper<String, GenericRecord, String> groupKeyMapper = AvroKeyValueMapper
-				.create(leftMappedTsExtractor, props.groupByField());
+				.create(groupByTsExtractor, props.groupByField());
 		final TimeWindowedKStream<String, GenericRecord> groupStream = joinStream
 				.groupBy(groupKeyMapper, Grouped.with(strSerde, avroSerde))
 				.windowedBy(TimeWindows.of(props.groupWindowSize()).grace(props.groupWindowRetention()));
-		final AvroLastAggregator lastAggregator = AvroLastAggregator.create(rightMappedTsExtractor);
+		final AvroLastAggregator lastAggregator = AvroLastAggregator.create(aggregateTsExtractor);
 		final KTable<Windowed<String>, GenericRecord> groupTable = groupStream.aggregate(lastAggregator, lastAggregator,
 				Materialized.with(strSerde, avroSerde));
-
+		
 		// write the changelog stream to the topic
 		final Produced<String, GenericRecord> produced = Produced.with(strSerde, avroSerde);
 		groupTable.toStream(WindowedKeyValueMapper.create(groupKeyMapper)).to(props.outTopic(), produced);

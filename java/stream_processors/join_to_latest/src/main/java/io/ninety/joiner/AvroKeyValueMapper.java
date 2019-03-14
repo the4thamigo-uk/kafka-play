@@ -8,8 +8,8 @@ public class AvroKeyValueMapper implements KeyValueMapper<String, GenericRecord,
 	public static AvroKeyValueMapper create(AvroTimestampExtractor timestampExtractor, String fieldName) {
 		return new AvroKeyValueMapper(timestampExtractor, fieldName);
 	}
+	
 	private final String fieldName;
-
 	private final AvroTimestampExtractor timestampExtractor;
 
 	private AvroKeyValueMapper(AvroTimestampExtractor timestampExtractor, String fieldName) {
