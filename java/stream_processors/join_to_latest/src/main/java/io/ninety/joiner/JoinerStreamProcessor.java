@@ -13,7 +13,6 @@ public class JoinerStreamProcessor {
 
 	public static void main(final String[] args) {
 		final JoinerProperties props = new JoinerProperties();
-		props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-joiner");
 		props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker:9092");
 		props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 		props.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://schema-registry:8081");
@@ -31,6 +30,10 @@ public class JoinerStreamProcessor {
 		props.put(JoinerProperties.RIGHT_FIELDS, "event_time as event_time_2, key1 as key1_2, key2 as key2_2, val as val_2");
 
 		props.loadFromEnvironment("APP_");
+
+		// in order to decouple different instances that process different topics, we ensure the app id is unique
+		final String appId = String.format("streams-joiner.%s.%s.%s", props.leftTopic(), props.rightTopic(), props.outTopic());
+		props.put(StreamsConfig.APPLICATION_ID_CONFIG, appId);
 		
 		final Topology topology = JoinerTopology.create(props);
 		final KafkaStreams streams = new KafkaStreams(topology, props.innerProps());
