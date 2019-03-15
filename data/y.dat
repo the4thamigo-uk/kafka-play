@@ -1,2 +1,2 @@
-"rk1"	{ "event_time": 0, "key1": "k1", "key2": "k2", "val": 10 }
-"rk1"	{ "event_time": 5000, "key1": "k1", "key2": "k2", "val": 50 }
+"rk1"	{ "event_time": 1552680000000, "key1": "k1", "key2": "k2", "val": 10 }
+"rk1"	{ "event_time": 1552680005000, "key1": "k1", "key2": "k2", "val": 50 }
