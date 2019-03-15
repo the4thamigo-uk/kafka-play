@@ -1,0 +1,1 @@
+create stream xy with (kafka_topic='xy', value_format='avro', timestamp='event_time_1');
