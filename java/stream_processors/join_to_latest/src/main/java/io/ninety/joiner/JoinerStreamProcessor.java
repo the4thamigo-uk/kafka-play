@@ -18,6 +18,7 @@ public class JoinerStreamProcessor {
 		props.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://schema-registry:8081");
 		props.put(JoinerProperties.LEFT_TOPIC, "x");
 		props.put(JoinerProperties.RIGHT_TOPIC, "y");
+		props.put(JoinerProperties.JOIN_TOPIC, "xy-join");
 		props.put(JoinerProperties.OUT_TOPIC, "xy");
 		props.put(JoinerProperties.LEFT_TIMESTAMP_FIELD, "event_time");
 		props.put(JoinerProperties.RIGHT_TIMESTAMP_FIELD, "event_time");
