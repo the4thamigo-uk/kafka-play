@@ -70,6 +70,25 @@ ksql> select * from x inner join y within 5 seconds on x.key2 = y.key2 where x.e
 10000 | k2 | 10000 | k1 | k2 | 10 | 5000 | k2 | 5000 | k1 | k2 | 50
 ```
 
+Similarly, you can use the `within` syntax, which is probably more efficient as it restricts the number of joined records by constraining the window :
+
+```
+ksql> select * from x inner join y within (5 seconds, 0 seconds) on x.key2 = y.key2;
+0 | k2 | 0 | k1 | k2 | 0 | 0 | k2 | 0 | k1 | k2 | 10
+1000 | k2 | 1000 | k1 | k2 | 1 | 0 | k2 | 0 | k1 | k2 | 10
+2000 | k2 | 2000 | k1 | k2 | 2 | 0 | k2 | 0 | k1 | k2 | 10
+3000 | k2 | 3000 | k1 | k2 | 3 | 0 | k2 | 0 | k1 | k2 | 10
+4000 | k2 | 4000 | k1 | k2 | 4 | 0 | k2 | 0 | k1 | k2 | 10
+5000 | k2 | 5000 | k1 | k2 | 5 | 0 | k2 | 0 | k1 | k2 | 10
+5000 | k2 | 5000 | k1 | k2 | 5 | 5000 | k2 | 5000 | k1 | k2 | 50
+6000 | k2 | 6000 | k1 | k2 | 6 | 5000 | k2 | 5000 | k1 | k2 | 50
+7000 | k2 | 7000 | k1 | k2 | 7 | 5000 | k2 | 5000 | k1 | k2 | 50
+8000 | k2 | 8000 | k1 | k2 | 8 | 5000 | k2 | 5000 | k1 | k2 | 50
+9000 | k2 | 9000 | k1 | k2 | 9 | 5000 | k2 | 5000 | k1 | k2 | 50
+10000 | k2 | 10000 | k1 | k2 | 10 | 5000 | k2 | 5000 | k1 | k2 | 50
+
+```
+
 Note: it seems that the duplicate row for 5000 is caused by first considering records where `x.event_time <= 5000` and `y.event_time < 5000`,
 then `x.event_time <= 5000` and `y.event_time <= 5000`.
 
