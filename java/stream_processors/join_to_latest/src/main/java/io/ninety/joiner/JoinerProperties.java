@@ -14,7 +14,6 @@ public class JoinerProperties {
 	// supported property names
 	public static final String LEFT_TOPIC = "left.topic";
 	public static final String RIGHT_TOPIC = "right.topic";
-	public static final String JOIN_TOPIC = "join.topic";
 	public static final String OUT_TOPIC = "out.topic";
 	public static final String LEFT_FIELDS = "left.fields"; // e.g. field1 as myalias1, field2 as myalias2, ...
 	public static final String RIGHT_FIELDS = "right.fields";
@@ -71,10 +70,6 @@ public class JoinerProperties {
 
 	public String rightTopic() {
 		return this.props.getProperty(RIGHT_TOPIC);
-	}
-
-	public String joinTopic() {
-		return this.props.getProperty(JOIN_TOPIC);
 	}
 	
 	public String outTopic() {
