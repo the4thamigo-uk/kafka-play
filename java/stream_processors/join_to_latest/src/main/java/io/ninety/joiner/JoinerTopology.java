@@ -1,6 +1,7 @@
 package io.ninety.joiner;
 
 import java.time.Duration;
+import java.util.Objects;
 
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.Serde;
@@ -15,7 +16,6 @@ import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.KeyValueMapper;
 import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.Predicate;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.TimeWindowedKStream;
 import org.apache.kafka.streams.kstream.TimeWindows;
@@ -55,7 +55,8 @@ public final class JoinerTopology {
 		final ValueJoiner<GenericRecord, GenericRecord, GenericRecord> joiner = AvroFieldsValueJoiner
 				.create(props.leftFields(), props.rightFields());
 		final JoinWindows joinWindow = JoinWindows.of(Duration.ZERO).before(props.joinWindowSize()).grace(props.joinWindowRetention());
-		final KStream<String, GenericRecord> joinStream = leftStream.join(rightStream, joiner, joinWindow, joined);
+		final KStream<String, GenericRecord> joinStream = leftStream.join(rightStream, joiner, joinWindow, joined)
+				.filter((k,v) -> Objects.deepEquals(v.get(props.leftMappedWhereField()), v.get(props.rightMappedWhereField())));
 
 		// re-timestamp joined stream on left timestamp
 		KafkaTopic.create(props.innerProps(), props.joinTopic(), 1, 1); // TODO shouldn't we use same partitioning

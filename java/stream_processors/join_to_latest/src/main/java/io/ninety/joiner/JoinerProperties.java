@@ -4,6 +4,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -17,6 +18,8 @@ public class JoinerProperties {
 	public static final String OUT_TOPIC = "out.topic";
 	public static final String LEFT_FIELDS = "left.fields"; // e.g. field1 as myalias1, field2 as myalias2, ...
 	public static final String RIGHT_FIELDS = "right.fields";
+	public static final String LEFT_WHERE_FIELD = "left.where.field";
+	public static final String RIGHT_WHERE_FIELD = "right.where.field";
 	public static final String LEFT_TIMESTAMP_FIELD = "left.timestamp.field";
 	public static final String RIGHT_TIMESTAMP_FIELD = "right.timestamp.field";
 	public static final String GROUP_BY_FIELD = "group.by.field"; // the field name on which to group after the join
@@ -33,8 +36,8 @@ public class JoinerProperties {
 
 	// data members
 	private final Properties props = new Properties();
-	private Map<String, String> leftFields; // mapped field to source field e.g. myalias1 -> field1
-	private Map<String, String> rightFields;
+	private Map<String, String> leftFields = new HashMap<>(); // mapped field to source field e.g. myalias1 -> field1
+	private Map<String, String> rightFields = new HashMap<>();
 	private Duration joinWindowSize;
 	private Duration groupWindowSize;
 	private Duration joinWindowRetention;
@@ -84,6 +87,22 @@ public class JoinerProperties {
 
 	public Map<String, String> rightFields() {
 		return this.rightFields;
+	}
+
+	public String leftWhereField() {
+		return this.props.getProperty(LEFT_WHERE_FIELD);
+	}
+
+	public String rightWhereField() {
+		return this.props.getProperty(RIGHT_WHERE_FIELD);
+	}
+
+	public String leftMappedWhereField() {
+		return this.leftFields.get(this.leftWhereField());
+	}
+
+	public String rightMappedWhereField() {
+		return this.rightFields.get(this.rightWhereField());
 	}
 
 	public String leftTimestampField() {

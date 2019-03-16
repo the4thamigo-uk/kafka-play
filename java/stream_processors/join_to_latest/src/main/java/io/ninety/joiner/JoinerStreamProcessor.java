@@ -20,6 +20,8 @@ public class JoinerStreamProcessor {
 		props.put(JoinerProperties.RIGHT_TOPIC, "y");
 		props.put(JoinerProperties.JOIN_TOPIC, "xy-join");
 		props.put(JoinerProperties.OUT_TOPIC, "xy");
+		props.put(JoinerProperties.LEFT_WHERE_FIELD, "key2");
+		props.put(JoinerProperties.RIGHT_WHERE_FIELD, "key2");
 		props.put(JoinerProperties.LEFT_TIMESTAMP_FIELD, "event_time");
 		props.put(JoinerProperties.RIGHT_TIMESTAMP_FIELD, "event_time");
 		props.put(JoinerProperties.GROUP_BY_FIELD, "key2_1");
