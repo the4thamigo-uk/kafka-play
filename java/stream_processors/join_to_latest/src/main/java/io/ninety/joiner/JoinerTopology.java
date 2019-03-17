@@ -79,7 +79,7 @@ public final class JoinerTopology {
 				.filter((key, value) -> value != null);
 
 		// write the changelog stream to the topic
-		groupTable.toStream(WindowedKeyValueMapper.create(groupKeyMapper)).to(props.outTopic(), produced);
+		groupTable.toStream((k,v) -> String.valueOf(v.get(props.groupByField()))).to(props.outTopic(), produced);
 
 		return builder.build();
 	}
