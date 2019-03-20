@@ -1,4 +1,4 @@
-package io.confluent.ksql.function.udaf.array;
+package io.ninety.kafka.udaf;
 
 import io.confluent.ksql.function.udaf.Udaf;
 import io.confluent.ksql.function.udaf.Udaf;
