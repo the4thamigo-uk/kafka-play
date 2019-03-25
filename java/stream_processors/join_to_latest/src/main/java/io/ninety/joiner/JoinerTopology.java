@@ -56,21 +56,13 @@ public final class JoinerTopology {
 				.create(props.leftFields(), props.rightFields());
 		final JoinWindows joinWindow = JoinWindows.of(Duration.ZERO).before(props.joinWindowSize()).grace(props.joinWindowRetention());
 		final KStream<String, GenericRecord> joinStream = leftStream.join(rightStream, joiner, joinWindow, joined)
-				.filter((k,v) -> Objects.deepEquals(v.get(props.leftMappedWhereField()), v.get(props.rightMappedWhereField())));
-
-		// re-timestamp joined stream on left timestamp
-		KafkaTopic.create(props.innerProps(), props.joinTopic(), 1, 1); // TODO shouldn't we use same partitioning
-																		// strategy?
-		final Produced<String, GenericRecord> produced = Produced.with(strSerde, avroSerde);
-		joinStream.to(props.joinTopic(), produced);
-		final Consumed<String, GenericRecord> groupByConsumed = Consumed.with(strSerde, avroSerde)
-				.withTimestampExtractor(groupByTsExtractor);
-		final KStream<String, GenericRecord> joinStream2 = builder.stream(props.joinTopic(), groupByConsumed);
+				.filter((k,v) -> Objects.deepEquals(v.get(props.leftMappedWhereField()), v.get(props.rightMappedWhereField())))
+				.transform(() -> new TimestampTransformer(props.groupByTimestampField()));
 
 		// setup the grouping
 		final KeyValueMapper<String, GenericRecord, String> groupKeyMapper = AvroKeyValueMapper
 				.create(groupByTsExtractor, props.groupByField());
-		final TimeWindowedKStream<String, GenericRecord> groupStream = joinStream2
+		final TimeWindowedKStream<String, GenericRecord> groupStream = joinStream
 				.groupBy(groupKeyMapper, Grouped.with(strSerde, avroSerde))
 				.windowedBy(TimeWindows.of(props.groupWindowSize()).grace(props.groupWindowRetention()));
 		final AvroLastAggregator lastAggregator = AvroLastAggregator.create(aggregateTsExtractor);
@@ -79,7 +71,8 @@ public final class JoinerTopology {
 				.filter((key, value) -> value != null);
 
 		// write the changelog stream to the topic
-		groupTable.toStream((k,v) -> String.valueOf(v.get(props.groupByField()))).to(props.outTopic(), produced);
+		final Produced<String, GenericRecord> produced = Produced.with(strSerde, avroSerde);
+		groupTable.toStream(WindowedKeyValueMapper.create(groupKeyMapper)).to(props.outTopic(), produced);
 
 		return builder.build();
 	}
